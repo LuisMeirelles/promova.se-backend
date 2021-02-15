@@ -1,9 +1,15 @@
-import express from 'express';
+import express, {
+    Request,
+    Response
+} from 'express';
+import multer from 'multer';
 
 import UsersController from './controllers/UsersController';
 import SongsController from './controllers/SongsController';
 
 import authMiddleware from './middlewares/auth';
+
+import multerConfig from './config/multer';
 
 const routes = express.Router();
 
@@ -17,6 +23,23 @@ routes.get('/users/:id', usersController.show);
 
 routes.get('/songs', songsController.index);
 routes.get('/songs/:id', songsController.show);
+
+routes.post('/upload', multer(multerConfig).single('file'), (req: Request, res: Response) => {
+    const {
+        originalname: name,
+        size,
+        filename: key,
+    } = req.file;
+
+    const imageData = {
+        name,
+        size,
+        key,
+        url: ''
+    };
+
+    return res.json(imageData);
+});
 
 routes.use(authMiddleware);
 
