@@ -30,7 +30,7 @@ export default (req: Request, res: Response, next: NextFunction): Response | voi
     }
 
     dotenv.config();
-    
+
     try {
         const SECRET = process.env.SECRET || '';
 

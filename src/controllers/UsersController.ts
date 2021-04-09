@@ -23,58 +23,79 @@ export interface UsersInterface {
     id: number;
     email: string;
     username: string;
-    name: string;
     password: string;
+    profile_picture: string;
     created_at: Date;
 }
 
 class UsersController {
 
-    async store(request: Request, response: Response): Promise<Response> {
+    async store(req: Request, res: Response): Promise<Response> {
         const data = {
-            ...request.body,
-            password: await bcrypt.hash(request.body.password, 10)
+            ...req.body,
+            password: await bcrypt.hash(req.body.password, 10)
         };
+
+        const {
+            email,
+            username,
+            password
+        } = data;
 
         const trx = await db.transaction();
 
         const emailExists = await trx<UsersInterface>('users')
             .where({
-                email: data.email
-            }).first();
+                email
+            }).first()
+        ;
 
         const usernameExists = await trx<UsersInterface>('users')
             .where({
-                username: data.username
-            }).first();
+                username
+            }).first()
+        ;
 
-        if (emailExists) {
-            return response.status(400).json({
-                message: 'email already registered'
-            });
-        } else if (usernameExists) {
-            return response.status(400).json({
+        if (usernameExists) {
+            return res.status(400).json({
                 message: 'username already registered'
             });
-        } else {
-            try {
-                const id = await trx<UsersInterface>('users')
-                    .insert(data)
-                    .returning('id');
+        }
 
-                await trx.commit();
+        if (emailExists) {
+            return res.status(400).json({
+                message: 'email already registered'
+            });
+        }
 
-                return response.status(201).json({
-                    token: generateToken({ id })
-                });
-            } catch (error) {
-                await trx.rollback();
+        try {
+            const profile_picture = req.file.buffer.toString('base64');
 
-                return response.status(400).json({
-                    message: 'unexpected error while creating new user',
-                    error
-                });
-            }
+            const id = await trx<UsersInterface>('users')
+                .insert({
+                    email,
+                    username,
+                    password,
+                    profile_picture
+                })
+                .returning('id')
+            ;
+
+            await trx.commit();
+
+            return res.status(201).json({
+                profile_picture,
+                token: generateToken({id: id[0]})
+            });
+        } catch (err) {
+            await trx.rollback();
+
+            console.error(err);
+
+            return res.status(400).json({
+                message: 'unexpected error while creating new user',
+                error: err
+            });
         }
     }
 
@@ -206,7 +227,7 @@ class UsersController {
                 })
             });
         } catch (error) {
-            console.log(error);
+            console.error(error);
             return response.status(400).json({
                 message: 'unexpected error while authenticating the user',
                 error

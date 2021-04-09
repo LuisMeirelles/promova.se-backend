@@ -14,7 +14,7 @@ export default {
             host: '127.0.0.1',
             user: 'root',
             password: 'mywordismypassword',
-            database: 'antares'
+            database: 'promova_se'
         },
         pool: {
             min: 2,
