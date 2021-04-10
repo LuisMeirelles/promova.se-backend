@@ -8,7 +8,7 @@ const {
 } = process.env;
 
 export default {
-    'development': {
+    development: {
         client: 'mysql',
         connection: {
             host: '127.0.0.1',
@@ -25,7 +25,7 @@ export default {
             directory:  path.join(path.dirname('./'), 'src', 'database', 'migrations')
         }
     },
-    'production': {
+    production: {
         client: 'mysql',
         connection: {
             host: DATABASE_HOST,
