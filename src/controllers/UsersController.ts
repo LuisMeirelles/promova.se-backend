@@ -28,66 +28,47 @@ interface UsersInterface {
     created_at: Date;
 }
 
-interface BandsInterface {
-    id: number;
-    name: string;
-    formation: string;
-    members: string[];
-    user_id: number;
-}
-
-interface MembersInterface {
-    id: number;
-    name: string;
-}
-
-interface BandsMembersInterface {
-    id: number;
-    band_id: number;
-    member_id: number;
-}
-
 class UsersController {
 
     async store(req: Request, res: Response): Promise<Response> {
-        const data = {
-            ...req.body,
-            password: await bcrypt.hash(req.body.password, 10)
-        };
-
-        const {
-            email,
-            username,
-            password
-        } = data;
-
         const trx = await db.transaction();
 
-        const emailExists = await trx<UsersInterface>('users')
-            .where({
-                email
-            }).first()
-        ;
-
-        if (emailExists) {
-            return res.status(400).json({
-                message: 'email already registered'
-            });
-        }
-
-        const usernameExists = await trx<UsersInterface>('users')
-            .where({
-                username
-            }).first()
-        ;
-
-        if (usernameExists) {
-            return res.status(400).json({
-                message: 'username already registered'
-            });
-        }
-
         try {
+            const data = {
+                ...req.body,
+                password: await bcrypt.hash(req.body.password, 10)
+            };
+
+            const {
+                email,
+                username,
+                password
+            } = data;
+
+            const emailExists = await trx<UsersInterface>('users')
+                .where({
+                    email
+                }).first()
+            ;
+
+            if (emailExists) {
+                return res.status(400).json({
+                    message: 'email already registered'
+                });
+            }
+
+            const usernameExists = await trx<UsersInterface>('users')
+                .where({
+                    username
+                }).first()
+            ;
+
+            if (usernameExists) {
+                return res.status(400).json({
+                    message: 'username already registered'
+                });
+            }
+
             const profile_picture = req.file.buffer.toString('base64');
 
             const user_id = await trx<UsersInterface>('users')
@@ -99,40 +80,10 @@ class UsersController {
                 }, 'id')
             ;
 
-            const {
-                band_name: bandName,
-                band_formation: formation
-            } = data;
-
-            const members: string[] = JSON.parse(data.members);
-
-            const band_id = await trx<BandsInterface>('bands')
-                .insert({
-                    name: bandName,
-                    formation,
-                    user_id: user_id[0]
-                }, 'id')
-            ;
-
-            for (const member of members) {
-                const member_id = await trx<MembersInterface>('members')
-                    .insert({
-                        name: member
-                    }, 'id')
-                ;
-
-                await trx<BandsMembersInterface>('bands_members')
-                    .insert({
-                        band_id: band_id[0],
-                        member_id: member_id[0]
-                    })
-                ;
-            }
-
             await trx.commit();
 
             return res.status(201).json({
-                profile_picture,
+                id: user_id[0],
                 token: generateToken({id: user_id[0]})
             });
         } catch (err) {
