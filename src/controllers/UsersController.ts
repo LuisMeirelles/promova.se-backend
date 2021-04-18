@@ -223,7 +223,8 @@ class UsersController {
             return response.status(200).json({
                 token: generateToken({
                     id: result.id
-                })
+                }),
+                id: result.id
             });
         } catch (error) {
             console.error(error);
