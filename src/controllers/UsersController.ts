@@ -19,7 +19,7 @@ const generateToken = (params = {}): string => {
     });
 };
 
-interface UsersInterface {
+interface UserInterface {
     id: number;
     email: string;
     username: string;
@@ -45,7 +45,7 @@ class UsersController {
                 password
             } = data;
 
-            const emailExists = await trx<UsersInterface>('users')
+            const emailExists = await trx<UserInterface>('users')
                 .where({
                     email
                 }).first()
@@ -57,7 +57,7 @@ class UsersController {
                 });
             }
 
-            const usernameExists = await trx<UsersInterface>('users')
+            const usernameExists = await trx<UserInterface>('users')
                 .where({
                     username
                 }).first()
@@ -71,7 +71,7 @@ class UsersController {
 
             const profile_picture = req.file.buffer.toString('base64');
 
-            const user_id = await trx<UsersInterface>('users')
+            const user_id = await trx<UserInterface>('users')
                 .insert({
                     email,
                     username,
@@ -104,7 +104,7 @@ class UsersController {
         filters.password ? filters.password = undefined : null;
 
         try {
-            const users = await db<UsersInterface>('users')
+            const users = await db<UserInterface>('users')
                 .where({ ...filters });
 
             return response.status(200).json(
@@ -127,7 +127,7 @@ class UsersController {
         const id = parseInt(request.params.id);
 
         try {
-            const user = await db<UsersInterface>('users')
+            const user = await db<UserInterface>('users')
                 .where({ id })
                 .first();
 
@@ -149,7 +149,7 @@ class UsersController {
         const trx = await db.transaction();
 
         try {
-            await trx<UsersInterface>('users')
+            await trx<UserInterface>('users')
                 .update({
                     ...request.body,
                     password: await bcrypt.hash(request.body.password, 10)
@@ -175,7 +175,7 @@ class UsersController {
         const trx = await db.transaction();
 
         try {
-            await trx<UsersInterface>('users')
+            await trx<UserInterface>('users')
                 .delete()
                 .where({ id });
 
@@ -195,44 +195,68 @@ class UsersController {
     async auth(request: Request, response: Response): Promise<Response> {
         const {
             user,
-            password
+            password,
+            token
         } = request.body;
 
-        try {
-            const result = await db<UsersInterface>('users')
-                .where({
-                    email: user
-                })
-                .orWhere({
-                    username: user
-                })
-                .first();
+        if (token) {
+            const id = jwt.decode(token, {json: true})?.id;
 
-            if (!result) {
-                return response.status(400).send({
-                    message: 'user not found'
+            if (id) {
+                const userData = await db<UserInterface>('users')
+                    .where({
+                        id
+                    })
+                    .first();
+
+                return response.status(200).json({
+                    ...userData,
+                    password: undefined,
+                    token
                 });
             }
 
-            if (!await bcrypt.compare(password, result.password)) {
-                return response.status(400).send({
-                    message: 'incorrect password'
+            return response.sendStatus(200);
+        } else if (password && user) {
+            try {
+                const userData = await db<UserInterface>('users')
+                    .where({
+                        email: user
+                    })
+                    .orWhere({
+                        username: user
+                    })
+                    .first();
+
+                if (!userData) {
+                    return response.status(400).send({
+                        message: 'user not found'
+                    });
+                }
+
+                if (!await bcrypt.compare(password, userData.password)) {
+                    return response.status(400).send({
+                        message: 'incorrect password'
+                    });
+                }
+
+                return response.status(200).json({
+                    ...userData,
+                    password: undefined,
+                    token: generateToken({
+                        id: userData.id
+                    })
+                });
+            } catch (error) {
+                console.error(error);
+                return response.status(400).json({
+                    message: 'unexpected error while authenticating the user',
+                    error
                 });
             }
-
-            return response.status(200).json({
-                token: generateToken({
-                    id: result.id
-                }),
-                id: result.id
-            });
-        } catch (error) {
-            console.error(error);
-            return response.status(400).json({
-                message: 'unexpected error while authenticating the user',
-                error
-            });
         }
+
+        return response.sendStatus(401);
     }
 }
 
